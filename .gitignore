@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+
+DATA/
+*.raw
+*.nc
+
+.env
+
+.vscode
+
+*.raw
+
+*.nc
