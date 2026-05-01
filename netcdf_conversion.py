@@ -5,7 +5,7 @@ Use echopype to convert Simrad EK60 raw files to netCDF
 jech  
 """
 
-def raw_to_netcdf(model, file_name):
+def raw_to_netcdf(model, directory_path, filename):
 
     import echopype as ep
     from echopype import open_raw
@@ -32,8 +32,9 @@ def raw_to_netcdf(model, file_name):
                 success = True
         return success
     
-    filename = Path('/home/user/Project/DATA/' + file_name) #D20090405-T114914.raw') #SetteSE2403Bigeye-D20240320-T033313.raw')  #') # 
-    dataDirectory = filename.parent
+    # filename = Path('/home/user/Project/DATA/' + file_name) #D20090405-T114914.raw') #SetteSE2403Bigeye-D20240320-T033313.raw')  #') # 
+    full_path = directory_path / filename
+    dataDirectory = Path(filename).parent
     outdir = dataDirectory / 'netCDF4_Files'
     # print(dataDirectory)
     # print(outdir)
@@ -43,7 +44,7 @@ def raw_to_netcdf(model, file_name):
 
     # convert to netCDF4    
     print('Converting: ', filename)
-    ed = open_raw(str(filename), sonar_model=model)
+    ed = open_raw(str(full_path), sonar_model=model)
     # Henry B. Bigelow ICES code is 33HH
     ed['Platform']['platform_name'] = 'Henry B. Bigelow'
     ed['Platform']['platform_type'] = 'SHIPC'

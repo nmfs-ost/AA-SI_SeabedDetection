@@ -44,7 +44,7 @@ Sv_data: Sv data with coordinations
 
 start_time = time.time()
 
-def DataPreprocessing(Sv, ed):
+def prepare_features(Sv, ed):
     # ====== Volume Backscattering Strength in dB =======           
     Sv_original = Sv.Sv              # shape = (Ch, T, R)
     # ===================================================

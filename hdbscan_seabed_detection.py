@@ -43,7 +43,7 @@ import seaborn as sns
 # 1100
 
 
-def HDBSCAN_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_clean, ping_time_vals, pings_clean):
+def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_clean, ping_time_vals, pings_clean, min_cluster_size):
 
     # ===== Feature selection ========================
     ch_x = 2
@@ -95,7 +95,7 @@ def HDBSCAN_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
     # Set min_cluster_size 
     # The only parameter we really need to set is 'min_cluster_size'.
     # We set it to x, meaning each cluster has to have a min number of x points.
-    min_cluster_size = 1100 #900 is best so far
+    # This heperparameter is defined as a parameter for this function as the value passed from main.py
     print(f'min_cluster_size for seabed detection is set to {min_cluster_size}')
     # ===========================================================================
     
