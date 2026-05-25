@@ -1,5 +1,7 @@
 # Seabed Detection based on HDBSCAN 
 
+<!-- markdownlint-disable MD033 MD041 -->
+
 ## Description 
 This project uses machine learning technique called HDBSCAN to automate the Seabed detection.
 
@@ -7,11 +9,14 @@ This project uses machine learning technique called HDBSCAN to automate the Seab
 Pythton 3.12
 Echopype
 
-## Installation 
 
 ## Usage
 - Input: EK60 or EK80 raw data
 - Output: Clusters of the acoustic data including the seabed cluster
+
+## Getting Started
+---
+
 
 ### Running the code
 - Provide the directory path to your raw file, DATA_DIR.
@@ -26,15 +31,8 @@ Echopype
 ## Technologies
 Python, Pandas, Scikit-learn, Echopype, 
 
-## Disclaimer
-This repository is a scientific product and is not official communication of the National Oceanic and Atmospheric Administration, or the United States Department of Commerce. All NOAA GitHub project code is provided on an 'as is' basis and the user assumes responsibility for its use. Any claims against the Department of Commerce or its bureaus stemming from the use of this GitHub project will be governed by all applicable Federal law. Reference to specific commercial products, processes, or services by service mark, trademark, manufacturer, or otherwise does not imply endorsement or favoring by the Department of Commerce. Use of DOC seals or logos shall not suggest endorsement by DOC or the U.S. Government.
-<!-- markdownlint-disable MD033 MD041 -->
 
 <div align="center">
-
-# NOAA Fisheries AA-SI Python Package Template
-
-**A modern Python package template for NOAA Fisheries Active Acoustics Strategic Initiative projects**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -49,79 +47,12 @@ This repository is a scientific product and is not official communication of the
 
 ---
 
-## Getting Started
-
-### Use This Template
-
-1. Click the **"Use this template"** button on GitHub
-2. Name your new repository
-3. Clone your new repository locally
-4. Follow the [Customization Checklist](#customization-checklist) below
-
-### Requirements
-
-- Python 3.10 or higher
-- pip
-
----
-
-## Customization Checklist
-
-After creating your repository from this template, complete the following steps:
-
-### 1. Rename the Package
-
-Replace all instances of `mypackagename` with your actual package name:
-
-| Location | Action |
-|----------|--------|
-| `src/mypackagename/` | Rename the folder |
-| `pyproject.toml` | Update `name`, URLs, and tool paths |
-| `src/mypackagename/__init__.py` | Update imports and docstring |
-| `tests/test_package.py` | Update import statements |
-
-### 2. Update Project Metadata
-
-Edit `pyproject.toml`:
-
-- `name` - Your package name
-- `version` - Start with `0.1.0`
-- `description` - Brief description of your package
-- `authors` / `maintainers` - Your information
-- `keywords` - Relevant search terms
-
-### 3. Update URLs
-
-In `pyproject.toml`, update `[project.urls]` with your repository information.
-
-### 4. Add Dependencies
-
-Add your package dependencies to the `dependencies` list in `pyproject.toml`.
-
-### 5. Update Documentation
-
-| File | Action |
-|------|--------|
-| `README.md` | Replace with your project documentation |
-| `CHANGELOG.md` | Update links to your repository |
-| `NOTICE` | Update copyright information |
-| `LICENSE` | Verify Apache 2.0 meets your needs |
-
-### 6. Clean Up
-
-- Delete this checklist section after completing setup
-- Make your first commit
-
----
-
-## Development
-
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/nmfs-ost/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/nmfs-ost/AA_SI-SeabedDetection.git
+cd Seabed_Detection
 
 # Create a virtual environment
 python -m venv .venv
@@ -170,7 +101,7 @@ python -m build
 ├── pyproject.toml
 ├── README.md
 ├── src/
-│   └── mypackagename/
+│   └── seabed_detection/
 │       └── __init__.py
 └── tests/
     ├── conftest.py
