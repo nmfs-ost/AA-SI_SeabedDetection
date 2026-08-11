@@ -1,17 +1,14 @@
-# -*- coding: utf-8 -*-
-"""
-Convert_EK60-to-netcdf
-Use echopype to convert Simrad EK60 raw files to netCDF
-jech  
-"""
 
-def raw_to_netcdf(model, directory_path, filename):
+import echopype as ep 
+import xarray as xr
+from pathlib import Path 
+import glob
+import os
+from sys import exit 
+from echopype.commongrid import resample_to_geometry
 
-    import echopype as ep
-    from echopype import open_raw
-    from pathlib import Path
-    import json
-    from sys import exit 
+
+def raw_to_netcdf_list(model, num, data_directory):
 
     def createOutDir(outputdir):
         # create the output directory
@@ -31,26 +28,91 @@ def raw_to_netcdf(model, directory_path, filename):
                 print('Output directory created %s' % outputdir)
                 success = True
         return success
+
+    # =====================================================================
+    #   return a list of individual EchoData objects
+    # =====================================================================
     
-    # filename = Path('/home/user/Project/DATA/' + file_name) #D20090405-T114914.raw') #SetteSE2403Bigeye-D20240320-T033313.raw')  #') # 
-    full_path = directory_path / filename
-    dataDirectory = Path(filename).parent
-    outdir = dataDirectory / 'netCDF4_Files'
-    # print(dataDirectory)
+    outdir = data_directory / 'netCDF4_Files'
+    # print(data_directory)
     # print(outdir)
-
     dc = createOutDir(outdir)
-    if not dc:  exit()
+    if not dc:  exit()  
 
-    # convert to netCDF4    
-    print('Converting: ', filename)
-    ed = open_raw(str(full_path), sonar_model=model)
-    # Henry B. Bigelow ICES code is 33HH
-    # ed['Platform']['platform_name'] = 'Henry B. Bigelow'
-    # ed['Platform']['platform_type'] = 'SHIPC'
-    # ed['Platform']['platform_code_ICES'] = '33HH'
-    # the to_netcdf function seems to have an error catch, so I don't use "try"
-    ed.to_netcdf(save_path=str(outdir))
+
+
+
+
     
-    return ed
+    # *********************************************************************
+    # file_name = 'D20250727-T033835.raw' #'D20250727-T040754.raw' #'SetteSE2403Bigeye-D20240320-T032338.raw' # "D20090405-T114914.raw" #
+    # ed = raw_to_netcdf(sonar_model, file_name)
+
+    # Find all .raw files, sort them by time, and grab the first 15
+    all_raw_files = sorted(glob.glob(os.path.join(data_directory, '*.raw')))
+    file_list = all_raw_files[:num] # [:15]
+    for f in file_list:
+        print(f'The file to be processed is {f}.')
+
+    if isinstance(file_list, str):
+        file_list = [file_list]
+
+    full_paths = [Path(data_directory + f) if not str(f).startswith('/') else Path(f) for f in file_list]
+    print(full_paths)
+
+    print(f'Opening {len(full_paths)} files individually...')
+    ed_list = [ep.open_raw(str(p), sonar_model=model) for p in full_paths]
+
+    for ed in ed_list:
+        ed.to_netcdf(save_path=str(outdir))
+
+    return ed_list
+    # ======================================================================
+
+
+
+
+# # Beam_group1 and Beam_group2 exist in the ed object: 
+# # 1) FM data is located in Beam_group1
+# # 2) CW data is located in Beam_group2
+# beam1 = ed['Sonar/Beam_group1']
+# beam2 = ed['Sonar/Beam_group2'] 
+# # ===========================================================================
+
+# # ========================= channel names ===================================
+# bb_channels = beam1.channel.values
+# cw_channels = beam2.channel.values  
+# print(f"FM channels: {bb_channels}")
+# print(f"CW channels: {cw_channels}")
+# """ 
+# ['WBT 401014-15 ES38-7_2' 
+#  'WBT 401025-15 ES120-7C_8'
+#  'WBT 401028-15 ES18-11mk2_7' 
+#  'WBT 401045-15 ES70-7C_8'
+#  'WBT 401061-15 ES200-7C_1']
+
+# ['WBT 401014-15 ES38-7_5' 
+#  'WBT 401025-15 ES120-7C_5'
+#  'WBT 401028-15 ES18-11mk2_3' 
+#  'WBT 401045-15 ES70-7C_5'
+#  'WBT 401061-15 ES200-7C_2']
+# """
+# # ============================================================================
+
+# # ==========================================
+# # pulse length(duration) for each ping_time
+# # ==========================================
+# print("=== Transmit Pulse Durations ===")
+
+# # Check the first Broadband channel (Ping index 0)
+# bb_pulse_durations = beam1['transmit_duration_nominal']
+# ch_bb = bb_channels[0]
+# pd_bb = bb_pulse_durations.sel(channel=ch_bb).isel(ping_time=0).values
+# print(f"BB Pulse Duration ({ch_bb}): {pd_bb * 1000:.2f} milliseconds")
+
+# # Check the first Continuous Wave channel (Ping index 1)
+# cw_pulse_durations = beam2['transmit_duration_nominal']
+# ch_cw = cw_channels[0]
+# pd_cw = cw_pulse_durations.sel(channel=ch_cw).isel(ping_time=1).values
+# print(f"CW Pulse Duration ({ch_cw}): {pd_cw * 1000:.2f} milliseconds")
 

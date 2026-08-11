@@ -7,11 +7,12 @@ from echopype.commongrid import resample_to_geometry
 
 
 
-def calibrate_EK80(ed_list, depth_offset, depth_limit, encode_mode):
+def calibrate_EK80(ed_list, depth_offset, depth_limit, encode_mode, low_resolution, low_res_spacing):
      
     cw_list, cw_original_list = [], []
     frq = 38000 #120000
-    low_res_spacing = 1.0
+    # low_res_spacing = 1 # 10.0
+    # low_resolution =  True #False #
 
     print("\nCalibrating, regridding, and adding depth per file...")
 
@@ -101,7 +102,7 @@ def calibrate_EK80(ed_list, depth_offset, depth_limit, encode_mode):
 
     print("Stitching complete! Ready for plotting.")
     
-    print(f"Final regridded range_sample size for HDBSCAN: {Sv_cw.sizes['range_sample']}")
+    print(f"Final regridded depth size for HDBSCAN: {Sv_cw.sizes['range_sample']}")
 
     # print(f"CW channels are {Sv_cw.channel.values}")
     # print(f"CW ping_times are {Sv_cw.ping_time.values}")
@@ -156,32 +157,33 @@ def calibrate_EK80(ed_list, depth_offset, depth_limit, encode_mode):
     print("*" * 80)
 
     for cw in cw_channels_sorted:
-        # ======== CW Plotting ================
-        Sv_cw_channel = Sv_cw.sel(channel= cw)
+        if low_resolution: 
+            # ======== CW Plotting ================
+            Sv_cw_channel = Sv_cw.sel(channel= cw)
 
-        # Assign 'depth' as a coordinate. xarray needs it to be a coordinate to map it to the Y-axis properly.
-        Sv_cw_channel = Sv_cw_channel.assign_coords(depth=Sv_cw_channel.depth)
+            # Assign 'depth' as a coordinate. xarray needs it to be a coordinate to map it to the Y-axis properly.
+            Sv_cw_channel = Sv_cw_channel.assign_coords(depth=Sv_cw_channel.depth)
 
-        Sv_cw_clean = Sv_cw_channel.dropna(dim='range_sample', subset=['depth'], how='all')
+            Sv_cw_clean = Sv_cw_channel.dropna(dim='range_sample', subset=['depth'], how='all')
 
-        fig, ax = plt.subplots(figsize=(14, 6))
-        # When passing a 2D coordinate to 'y', xarray automatically uses pcolormesh
-        Sv_cw_clean['Sv'].plot(
-            x='ping_time', 
-            y='depth', 
-            yincrease=False,   
-            cmap='viridis',     
-            vmin=-80,           
-            vmax=-30,           
-            ax=ax
-        )
-        # ax.set_ylim(1300,0)
-        ax.set_title(f"CW Echogram - Channel: {cw}")
-        ax.set_ylabel("Depth (m)")
-        ax.set_xlabel("Ping Time")
+            fig, ax = plt.subplots(figsize=(14, 6))
+            # When passing a 2D coordinate to 'y', xarray automatically uses pcolormesh
+            Sv_cw_clean['Sv'].plot(
+                x='ping_time', 
+                y='depth', 
+                yincrease=False,   
+                cmap='viridis',     
+                vmin=-80,           
+                vmax=-30,           
+                ax=ax
+            )
+            # ax.set_ylim(1300,0)
+            ax.set_title(f"CW Echogram - Channel: {cw}")
+            ax.set_ylabel("Depth (m)")
+            ax.set_xlabel("Ping Time")
 
-        plt.tight_layout()
-        plt.show()
+            plt.tight_layout()
+            plt.show()
 
 
         # ======== CW Original Plotting ================
@@ -212,7 +214,38 @@ def calibrate_EK80(ed_list, depth_offset, depth_limit, encode_mode):
         plt.show()
        
 
-    return Sv_cw
+
+
+    if low_resolution:
+        chosen_Sv = Sv_cw 
+    else:
+        chosen_Sv = Sv_cw_original
+    # everything in the below code block to change to chosen_Sv from Sv_cw_origiv=nal
+    # ===============================================================================
+    # ===== Sv_cw_original to hold depth values rather than range_sample ============
+    print("Replacing 'range_sample' coordinate with actual 'depth (meters)'...")
+    
+    # Extract 1D depth values from the first channel and first ping 
+    # (Assuming depth structure is constant across pings for the array shape)
+    depth_values = chosen_Sv.depth[0][0][:].values   
+    
+    # Assign new coordinates and rename the dimension
+    chosen_Sv = chosen_Sv.assign_coords(range_sample=('range_sample', depth_values))
+    chosen_Sv = chosen_Sv.rename(range_sample="depth (meters)")
+    # ===============================================================================
+
+
+    if chosen_Sv == Sv_cw:
+        print("Returning the low resolution calibrated signal for further processing for seabed detection.")
+    elif chosen_Sv == Sv_cw_original:
+        print("No resolution reduction. Returning the original calibrated signal for further processing for seabed detection.")
+    
+    
+    # Sort the dimensions to ensure they are strictly monotonic for xarray plotting
+    chosen_Sv = chosen_Sv.sortby("ping_time")
+    chosen_Sv = chosen_Sv.sortby("depth (meters)")
+    
+    return chosen_Sv # Sv_cw_original # Sv_cw chosen_Sv
 
 
 

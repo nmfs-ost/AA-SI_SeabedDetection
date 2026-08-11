@@ -225,4 +225,6 @@ DATA/
 *.raw
 *.nc
 
+results
+
 .vscode

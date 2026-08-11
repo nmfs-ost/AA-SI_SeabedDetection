@@ -2,7 +2,7 @@
 # Preprocess data 
 # for ML based processing
 
-# input: ed, calibrated Sv
+# input: calibrated Sv
 # output: DataFrame ready for processing by HDBSCAN
 # ==================================================
 
@@ -44,7 +44,7 @@ Sv_data: Sv data with coordinations
 
 start_time = time.time()
 
-def prepare_features(Sv, ed):
+def prepare_features(Sv):
     # ====== Volume Backscattering Strength in dB =======           
     Sv_original = Sv.Sv              # shape = (Ch, T, R)
     # ===================================================
@@ -58,22 +58,26 @@ def prepare_features(Sv, ed):
     # print(f'Depth data is limited to the first {k-k_min} samples.')                       
     Sv_data = Sv_original
     # =========================================================================
-          
+    
+    
+    # =============== This section moved to EK80_processing.py ================
+    # # ==== Compute depth values =====================================
+    # Sv_with_depth = ep.consolidate.add_depth(Sv, echodata = ed)
+    # # Sv_with_depth['depth'].shape     # (4, 1209, 2665)
+    # depth_values = Sv_with_depth.depth[0][0][:].values   
+    # # depth_values = Sv_with_depth.depth[0][0][k_min:k].values 
+    # # ===============================================================
 
-    # ==== Compute depth values =====================================
-    Sv_with_depth = ep.consolidate.add_depth(Sv, echodata = ed)
-    # Sv_with_depth['depth'].shape     # (4, 1209, 2665)
-    depth_values = Sv_with_depth.depth[0][0][:].values   
-    # depth_values = Sv_with_depth.depth[0][0][k_min:k].values 
+    # # ===== Sv_data to hold depth values rather than range_sample ===================
+    # # For plotting the originial Sv with actual depth values
+    # Sv_data = Sv_data.assign_coords(range_sample = ( 'range_sample' ,  depth_values) )
+    # # Rename the coordinate of range_sample to depth (meters)
+    # Sv_data = Sv_data.rename(range_sample = "depth (meters)")
+    # # ===============================================================================
+
+    # ==== Extract depth values directly from the new coordinate ====
+    depth_values = Sv_data.coords['depth (meters)'].values
     # ===============================================================
-
-
-    # ===== Sv_data to hold depth values rather than range_sample ===================
-    # For plotting the originial Sv with actual depth values
-    Sv_data = Sv_data.assign_coords(range_sample = ( 'range_sample' ,  depth_values) )
-    # Rename the coordinate of range_sample to depth (meters)
-    Sv_data = Sv_data.rename(range_sample = "depth (meters)")
-    # ===============================================================================
 
 
     # ===== Obtain number of channels, ping_times, and echo_range ========     
@@ -103,7 +107,7 @@ def prepare_features(Sv, ed):
     Sv_reshaped = Sv_np.reshape(T*R, Ch)
     # ===================================================================
 
-
+    
     # ===== Remove rows with NaN values on any channel ======================
     # mask returns a 1D boolean array where each value is True if that row has at least one NaN in any channel
     mask = ~np.isnan(Sv_reshaped).any(axis = 1) # axis = 1 referes to columns
@@ -120,12 +124,10 @@ def prepare_features(Sv, ed):
     ping_time_vals = Sv_data.ping_time.values
 
 
-
     end_time = time.time()
-    print(f"Running time of preprocessing step is {end_time - start_time} seconds.")
+    print(f"Running time of preprocessing step is {end_time - start_time: 0.2f} seconds.")
 
     return Sv_data, Sv_clean, Ch, T, R, depth_values, depths_clean, ping_time_vals, pings_clean
-
 
     
     
