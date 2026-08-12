@@ -19,6 +19,7 @@
 
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
@@ -43,10 +44,10 @@ import seaborn as sns
 # 1100
 
 
-def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_clean, ping_time_vals, pings_clean, min_cluster_size):
+def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_clean, ping_time_vals, pings_clean, min_cluster_size, min_samples, num_channel_chosen_for_features, plot = True, gen_min_span_tree = True, core_dist_n_jobs = 4):
 
     # ===== Feature selection ========================
-    ch_x = 2
+    ch_x = num_channel_chosen_for_features # 5 #2
     Sv_ml = Sv_clean[:, :ch_x]
 
     # === Add dB differrencing as features ============
@@ -54,7 +55,7 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
     ref = Sv_ml[:,0].reshape(-1, 1)
     target_cols = Sv_ml[:, 1:]
     Sv_ml = np.hstack([Sv_ml, target_cols - ref])
-    # Sv_ml = np.hstack( [ Sv_ml , Sv_ml[:,1].reshape(-1, 1) - ref ] )
+    # Sv_ml = np.hstack([ Sv_ml , Sv_ml[:,1].reshape(-1, 1) - ref ] )
 
 
     # ===== Add ping_time and depth as features =======================
@@ -64,6 +65,7 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
     depths_col = depths_clean.reshape(-1,1)
     # Add two columns to the numpy array, Sv_ml
     Sv_ml = np.hstack( [ Sv_ml, ping_times_idx_col, depths_col] )
+    print(f'Sv_ml has a shape of {Sv_ml.shape}.')
     # ==================================================================
 
     num_features = Sv_ml.shape[1]
@@ -97,6 +99,7 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
     # We set it to x, meaning each cluster has to have a min number of x points.
     # This heperparameter is defined as a parameter for this function as the value passed from main.py
     print(f'min_cluster_size for seabed detection is set to {min_cluster_size}')
+    print(f'min_samples for seabed detection is set to {min_samples}')
     # ===========================================================================
     
     # 300, 300: seabed detection
@@ -106,9 +109,16 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
 
     # 4 features
     # 2000, 2000
+    # min_samples = 7
+    # min_cluster_size = 100
+
+    # 7, 10: all in cluster 0
+    # 10, 30: all in cluster 0
+    # 10, 100: seabed as noise
+    # 7, 100: 
 
     # ===== Create the model and fit to the data ==========================================================
-    clusterer = hdbscan.HDBSCAN(min_cluster_size, min_samples = min_cluster_size, gen_min_span_tree = True) 
+    clusterer = hdbscan.HDBSCAN(min_cluster_size, min_samples, gen_min_span_tree = gen_min_span_tree, core_dist_n_jobs = core_dist_n_jobs) #, cluster_selection_method='leaf')
     clusterer.fit(Sv_scaled)
 
     # 'labels_' contains the cluster assignment for each point.
@@ -120,7 +130,8 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
     probabilities = clusterer.probabilities_
     # =====================================================================================================
 
-    clusterer.condensed_tree_.plot()
+    if plot:
+        clusterer.condensed_tree_.plot()
 
     # Get the number of clusters found (excluding noise)
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
@@ -151,6 +162,9 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
     # * Scatter plot for range_sample versus ping_time 
     # """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
+
+    if not plot:
+        return labels, probabilities, df_results
 
     # Reconstruct an xarray DataArray of cluster labels, so we can plot like an echogram. 
     # This helps make results visually comparable to the original Sv image.
@@ -186,7 +200,7 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
     unique_labels = np.unique(labels)
 
     # A categorical colormap with enough colors
-    cmap = plt.cm.get_cmap('tab20', len(unique_labels))
+    cmap = matplotlib.colormaps['tab20'].resampled(len(unique_labels))
 
     # legends
     legend_handles = []
@@ -196,12 +210,32 @@ def hdbscan_seabed_detection(Sv_data, Sv_clean, Ch, T, R, depth_values, depths_c
         legend_handles.append(mpatches.Patch(color = color, label = name))
 
 
+
+    # >>> ADD THESE 3 LINES TO FIX THE PLOT <<<
+    # 1. Drop duplicate timestamps and depths that break xarray's monotonic check
+    cluster_da = cluster_da.drop_duplicates(dim="ping_time")
+    cluster_da = cluster_da.drop_duplicates(dim="depth (meters)")
+    
+    # 2. Force strict sorting right before plotting
+    cluster_da = cluster_da.sortby("ping_time").sortby("depth (meters)")
+    # >>> ================================== <<<
+
     plt.figure(figsize = (12,6))
-    cluster_da.plot(x = "ping_time", y = "depth (meters)", cmap = cmap, vmin = -1, vmax = len(unique_labels)-1, add_colorbar = False) # -1 for noise; cmap: color map; tab20: categorical color map; vmin: min value of the color map
-    # plt.title("HDBSCAN Clusters")
+    
+    # Optional but recommended: add `yincrease = False` to your plot function 
+    # so depth visually goes down from 0 at the surface.
+    cluster_da.plot(
+        x = "ping_time", 
+        y = "depth (meters)", 
+        cmap = cmap, 
+        vmin = -1, 
+        vmax = len(unique_labels)-1, 
+        add_colorbar = False,
+        yincrease = False      
+    )
     plt.title( f"HDBSCAN, Features = {num_features},  min_cluster_size = {min_cluster_size}")
 
-    plt.gca().invert_yaxis()           # gca: get current axes
+    # plt.gca().invert_yaxis()           # gca: get current axes
     plt.legend(handles = legend_handles, title = "Cluster labels", bbox_to_anchor = (1.05, 1), loc = "upper left")
     plt.show()
     # like an echogram but each pixel is colored by its cluster ID

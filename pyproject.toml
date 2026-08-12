@@ -41,9 +41,12 @@ dependencies = [
     # Add your package dependencies here, e.g.:
     "numpy>=1.21.0",
     "pandas>=1.3.0",
-    "echopype>=1.11.1",
+    "echopype>=0.11.1",
     "xarray>=2026.4.0",
     "hdbscan>= 0.8.40",
+    "scikit-learn>=1.3.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.13.0",
 ]
 
 [project.optional-dependencies]
@@ -78,7 +81,7 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/AA-SI_SeabedDetection"]
+packages = ["src/seabed_detection"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -90,7 +93,7 @@ addopts = [
 ]
 
 [tool.coverage.run]
-source = ["src/SI_SeabedDetection"]
+source = ["src/seabed_detection"]
 branch = true
 
 [tool.coverage.report]
