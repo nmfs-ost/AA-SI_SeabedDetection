@@ -8,6 +8,7 @@ result to the 1-D (ping_time,) DataArray such steps return.
 """
 
 import echopype as ep
+import numpy as np
 import xarray as xr
 
 from seabed_detection.data_preprocessing import prepare_features
@@ -78,12 +79,105 @@ def _limit_range(ds_Sv, range_sample_start, range_sample_end):
     return ds_Sv.isel({dim: slice(range_sample_start, range_sample_end)})
 
 
+def _channel_frequencies_khz(ds_Sv):
+    """Nominal frequency of each channel in kHz, in the dataset's channel order.
+
+    Args:
+        ds_Sv: Calibrated Sv dataset.
+
+    Returns:
+        List of frequencies in kHz, or None when ds_Sv carries no
+        frequency_nominal.
+    """
+    if "frequency_nominal" not in ds_Sv:
+        return None
+    freq = ds_Sv["frequency_nominal"]
+    spare = [dim for dim in freq.dims if dim != "channel"]
+    if spare:
+        freq = freq.isel({dim: 0 for dim in spare})
+    return [int(round(float(v) / 1000)) for v in np.atleast_1d(freq.values)]
+
+
+def _resolve_channel(wanted, labels, frequencies_khz):
+    """Index of the channel named by a label or a frequency in kHz."""
+    if isinstance(wanted, str):
+        for index, label in enumerate(labels):
+            if str(label) == wanted:
+                return index
+        raise ValueError(f"no channel labelled {wanted!r}; have {[str(x) for x in labels]}")
+
+    if frequencies_khz is None:
+        raise ValueError(
+            "ds_Sv has no frequency_nominal, so channels can only be chosen by label"
+        )
+    target = int(round(float(wanted)))
+    matches = [i for i, khz in enumerate(frequencies_khz) if khz == target]
+    if not matches:
+        raise ValueError(f"no channel at {target} kHz; have {frequencies_khz}")
+    if len(matches) > 1:
+        raise ValueError(f"{target} kHz matches {len(matches)} channels; choose by label")
+    return matches[0]
+
+
+def _order_feature_channels(ds_Sv, feature_channels, num_feature_channels):
+    """Put the channels used as clustering features first.
+
+    hdbscan_seabed_detection reads the first ``num_channel_chosen_for_features``
+    columns, so which channels become features depends on the order they sit in.
+    The EK60/EK80 scripts sort by frequency before building features; a dataset
+    arriving from a workflow carries whatever order the raw file had, so sort
+    here too rather than relying on it.
+
+    Every channel is kept, only reordered. prepare_features drops a row where
+    any channel is NaN, so subsetting to the selected channels would quietly
+    relax that and change which cells are clustered.
+
+    Args:
+        ds_Sv: Calibrated Sv dataset.
+        feature_channels: Channels to use, as labels or frequencies in kHz, in
+            the order they should be fed. None selects by count instead.
+        num_feature_channels: How many channels to use when feature_channels is
+            None, taken in ascending frequency.
+
+    Returns:
+        Tuple of the reordered dataset and the number of leading channels to
+        use as features.
+
+    Raises:
+        ValueError: If a requested channel is missing, ambiguous, repeated, or
+            if more channels are asked for than the dataset holds.
+    """
+    frequencies_khz = _channel_frequencies_khz(ds_Sv)
+    n_channels = ds_Sv.sizes["channel"]
+
+    if feature_channels:
+        labels = list(ds_Sv["channel"].values)
+        chosen = []
+        for wanted in feature_channels:
+            index = _resolve_channel(wanted, labels, frequencies_khz)
+            if index in chosen:
+                raise ValueError(f"channel {wanted!r} requested more than once")
+            chosen.append(index)
+        rest = [i for i in range(n_channels) if i not in chosen]
+        return ds_Sv.isel(channel=chosen + rest), len(chosen)
+
+    if num_feature_channels > n_channels:
+        raise ValueError(
+            f"num_feature_channels={num_feature_channels} exceeds the "
+            f"{n_channels} channels in ds_Sv"
+        )
+    if frequencies_khz is not None:
+        ds_Sv = ds_Sv.isel(channel=np.argsort(frequencies_khz, kind="stable"))
+    return ds_Sv, num_feature_channels
+
+
 def detect_seafloor_hdbscan(
     ds_Sv,
     echodata=None,
     min_cluster_size=300,
     min_samples=300,
     num_feature_channels=2,
+    feature_channels=None,
     offset_m=1.0,
     range_sample_start=0,
     range_sample_end=None,
@@ -105,8 +199,13 @@ def detect_seafloor_hdbscan(
             cluster.
         min_samples: HDBSCAN neighbourhood size; larger values label more
             points as noise.
-        num_feature_channels: Number of frequency channels, taken in the
-            dataset's channel order, used as clustering features.
+        num_feature_channels: Number of frequency channels used as
+            clustering features, taken in ascending frequency. Ignored when
+            feature_channels is given.
+        feature_channels: Explicit channels to use as features, as labels or
+            frequencies in kHz, e.g. [38, 70]. The first one is the baseline
+            the dB differences are measured against. A single channel is
+            allowed and simply contributes no difference features.
         offset_m: Metres subtracted from the detected line to move it up
             through the water column.
         range_sample_start: First range sample to cluster.
@@ -129,7 +228,10 @@ def detect_seafloor_hdbscan(
         ping_time coordinate.
     """
     ds_limited = _limit_range(ds_Sv, range_sample_start, range_sample_end)
-    ds_prepared = _with_depth_coordinate(ds_limited, echodata)
+    ds_ordered, n_feature_channels = _order_feature_channels(
+        ds_limited, feature_channels, num_feature_channels
+    )
+    ds_prepared = _with_depth_coordinate(ds_ordered, echodata)
 
     (
         Sv_data,
@@ -155,7 +257,7 @@ def detect_seafloor_hdbscan(
         pings_clean,
         min_cluster_size,
         min_samples,
-        num_feature_channels,
+        n_feature_channels,
         plot=plot,
         gen_min_span_tree=gen_min_span_tree,
         core_dist_n_jobs=core_dist_n_jobs,
@@ -173,7 +275,7 @@ def detect_seafloor_hdbscan(
             "units": "m",
             "min_cluster_size": min_cluster_size,
             "min_samples": min_samples,
-            "num_feature_channels": num_feature_channels,
+            "num_feature_channels": n_feature_channels,
             "offset_m": offset_m,
         },
     )
