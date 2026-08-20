@@ -14,9 +14,9 @@ from netcdf_conversion import raw_to_netcdf_list
 # from netcdf_conversion_temp import raw_to_netcdf
 from EK60_processing import calibrate_EK60
 from EK80_processing import calibrate_EK80
-from data_preprocessing import prepare_features
-from hdbscan_seabed_detection import hdbscan_seabed_detection
-from seabed_export import extract_seabed_line, export_to_evl
+from seabed_detection.data_preprocessing import prepare_features
+from seabed_detection.hdbscan_seabed_detection import hdbscan_seabed_detection
+from seabed_detection.seabed_export import extract_seabed_line, export_to_evl
 
 
 start_time = time.time()
